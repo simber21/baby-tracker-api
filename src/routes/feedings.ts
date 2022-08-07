@@ -14,7 +14,7 @@ const feedingsRouter = express.Router();
 feedingsRouter.post("/createTable", (_req, res) => {
   const createFeedingTableTask = pipe(
     createTable(),
-    TE.mapLeft((err) => res.status(404).send(err.message)),
+    TE.mapLeft((err) => res.status(err.statusCode).send(err.message)),
     TE.map(() => res.sendStatus(200))
   );
   createFeedingTableTask();
@@ -30,10 +30,10 @@ feedingsRouter.post("/feed", (req, res) => {
   postFeedingTask();
 });
 
-feedingsRouter.get("/feeds", (req, res) => {
+feedingsRouter.get("/feeds", (_req, res) => {
   const fetchFeedingsTask = pipe(
     fetchFeedings(),
-    TE.mapLeft((err) => res.status(404).send(err.message)),
+    TE.mapLeft((err) => res.status(err.statusCode).send(err.message)),
     TE.map((feedings) => res.send(JSON.stringify(feedings)))
   );
   fetchFeedingsTask();
@@ -42,8 +42,8 @@ feedingsRouter.get("/feeds", (req, res) => {
 feedingsRouter.get("/feed/:date/:time", (req, res) => {
   const fetchFeedingTask = pipe(
     fetchFeeding(req.params.date, req.params.time),
-    TE.mapLeft((err) => res.status(404).send(err.message)),
-    TE.map(res.send)
+    TE.mapLeft((err) => res.status(err.statusCode).send(err.message)),
+    TE.map((feeding) => res.send(JSON.stringify(feeding)))
   );
   fetchFeedingTask();
 });

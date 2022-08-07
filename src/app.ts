@@ -29,7 +29,7 @@ app.use(
       status: (arg0: any) => void;
       render: (arg0: string) => void;
     },
-    next: any
+    _next: any
   ) => {
     // set locals, only providing error in development
     res.locals.message = err.message;

@@ -16,7 +16,7 @@ const client = new DynamoDBClient({
   endpoint: "http://localhost:8000",
 });
 
-export function fetchFeedings(): TaskEither<Error, Feeding[]> {
+export function fetchFeedings(): TaskEither<ApiError, Feeding[]> {
   const scanCommand = new ScanCommand({
     TableName: "Feedings",
   });
@@ -24,7 +24,12 @@ export function fetchFeedings(): TaskEither<Error, Feeding[]> {
   const scanTask = () =>
     tryCatch(
       () => client.send(scanCommand),
-      (err: Error) => new Error(`error scanning table: ${err.message}`)
+      (err: Error) => {
+        return {
+          message: `error scanning table: ${err.message}`,
+          statusCode: 500,
+        } as ApiError;
+      }
     );
 
   return pipe(
@@ -34,7 +39,7 @@ export function fetchFeedings(): TaskEither<Error, Feeding[]> {
   );
 }
 
-export function postFeeding(feeding: Feeding): TaskEither<Error, void> {
+export function postFeeding(feeding: Feeding): TaskEither<ApiError, void> {
   const putFeedingCommand = () =>
     new PutItemCommand({
       TableName: "Feedings",
@@ -44,7 +49,12 @@ export function postFeeding(feeding: Feeding): TaskEither<Error, void> {
   const putTask = () =>
     tryCatch(
       () => client.send(putFeedingCommand()),
-      (error: Error) => new Error(`error putting item: ${error.message}`)
+      (err: Error) => {
+        return {
+          message: `error putting item: ${err.message}`,
+          statusCode: 500,
+        } as ApiError;
+      }
     );
 
   return pipe(
@@ -56,7 +66,7 @@ export function postFeeding(feeding: Feeding): TaskEither<Error, void> {
   );
 }
 
-export function createTable(): TaskEither<Error, void> {
+export function createTable(): TaskEither<ApiError, void> {
   const createTableCommand = new CreateTableCommand({
     TableName: "Feedings",
     KeySchema: [
@@ -88,7 +98,12 @@ export function createTable(): TaskEither<Error, void> {
   const createTableTask = () =>
     tryCatch(
       () => client.send(createTableCommand),
-      (error: Error) => new Error(`error creating table: ${error.message}`)
+      (error: Error) => {
+        return {
+          message: `error creating table: ${error.message}`,
+          statusCode: 500,
+        } as ApiError;
+      }
     );
 
   return pipe(
@@ -103,13 +118,25 @@ export function createTable(): TaskEither<Error, void> {
 export function fetchFeeding(
   dateParam: string,
   timeParam: string
-): TaskEither<Error, Feeding> {
+): TaskEither<ApiError, Feeding> {
   return pipe(
     fetchFeedings(),
-    TE.map((feedings) =>
-      feedings.find(
-        (feeding) => feeding.date === dateParam && feeding.time === timeParam
-      )
-    )
+    TE.map((feedings) => {
+      return TE.fromPredicate(
+        (filteredFeedings: Feeding[]) => filteredFeedings.length === 1,
+        () => {
+          return {
+            message: `Feeding not found for date ${dateParam} and time ${timeParam}.`,
+            statusCode: 404,
+          } as ApiError;
+        }
+      )(
+        feedings.filter(
+          (feeding) => feeding.date === dateParam && feeding.time === timeParam
+        )
+      );
+    }),
+    TE.flatten,
+    TE.map((foundFeedingArray) => foundFeedingArray[0])
   );
 }
